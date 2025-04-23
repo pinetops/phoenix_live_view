@@ -24,7 +24,7 @@
     "assets/js/phoenix_live_view/*"
   ],
   "dependencies": {
-    "morphdom": "2.7.5"
+    "morphdom": "^2.7.5"
   },
   "devDependencies": {
     "@babel/cli": "7.27.0",

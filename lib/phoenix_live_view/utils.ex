@@ -520,6 +520,35 @@ defmodule Phoenix.LiveView.Utils do
     end
   end
 
+  def maybe_call_handle_params!(socket, component, assigns, params) do
+    cond do
+      function_exported?(component, :handle_params2, 3) ->
+        socket =
+          case component.handle_params2(params, "uri", socket) do
+            {:ok, %Socket{} = socket} ->
+              socket
+
+            other ->
+              socket 
+              # raise ArgumentError, """
+              # invalid result returned from #{inspect(component)}.update/2.
+              #
+              # Expected {:ok, socket}, got: #{inspect(other)}
+              # """
+          end
+        #
+        # if socket.redirected do
+        #   raise "cannot redirect socket on update. Redirect before `update/2` is called" <>
+        #           " or use `send/2` and redirect in the `handle_info/2` response"
+        # end
+        #
+        socket
+
+      true ->
+        Enum.reduce(assigns, socket, fn {k, v}, acc -> assign(acc, k, v) end)
+    end
+  end
+
   @doc """
   Signs the socket's flash into a token if it has been set.
   """

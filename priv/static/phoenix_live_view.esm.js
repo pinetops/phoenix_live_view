@@ -4828,6 +4828,9 @@ var LiveSocket = class {
     window.addEventListener("pagehide", (_e) => {
       this.unloaded = true;
     });
+    window.addEventListener("phx:js-execute", ({ detail }) => {
+      this.execJS(document.body, detail.ops);
+    });
     this.socket.onOpen(() => {
       if (this.isUnloaded()) {
         window.location.reload();

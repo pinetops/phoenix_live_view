@@ -287,6 +287,31 @@ defmodule Phoenix.LiveView.Diff do
     end
   end
 
+  def handle_params_component(socket, params, components, ref, updated_assigns) do
+    case fetch_cid(ref, components) do
+      {:ok, {cid, module}} ->
+        # updated_assigns = maybe_call_preload!(module, updated_assigns)
+        IO.puts("cid: #{cid}")
+        {diff, new_components, :noop} =
+          write_component(socket, cid, components, fn component_socket, component ->
+            telemetry_metadata = %{}
+
+            sockets =
+              :telemetry.span([:phoenix, :live_component, :handle_params], telemetry_metadata, fn ->
+                {Utils.maybe_call_handle_params!(component_socket, component, updated_assigns, params),
+                 telemetry_metadata}
+              end)
+
+            {sockets, :noop}
+          end)
+
+        {diff, new_components}
+
+      :error ->
+        :noop
+    end
+  end
+
   @doc """
   Marks a component for deletion.
 

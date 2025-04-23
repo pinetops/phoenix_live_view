@@ -143,10 +143,17 @@ defmodule Phoenix.LiveView.Channel do
     case Route.live_link_info!(socket, view, url) do
       {:internal, %Route{params: params, action: action}} ->
         socket = socket |> assign_action(action) |> Utils.clear_flash()
-
-        socket
+      socket2 = socket
         |> Utils.call_handle_params!(view, params, url)
         |> handle_result({:handle_params, 3, msg.ref}, state)
+
+      IO.inspect(state)
+
+      Enum.each(state.components |> elem(0) |> IO.inspect(), fn {k, {v,w,x,_,_}} ->
+        Diff.handle_params_component(socket, params, state.components, {v, w}, x) 
+      end)
+
+      socket2
 
       {:external, _uri} ->
         {:noreply, reply(state, msg.ref, :ok, %{link_redirect: true})}
@@ -1065,7 +1072,7 @@ defmodule Phoenix.LiveView.Channel do
 
             3) Also pass the `@session_options` to your LiveView socket:
 
-                socket "/live", Phoenix.LiveView.Socket,
+                socket "elive", Phoenix.LiveView.Socket,
                   websocket: [connect_info: [session: @session_options]]
 
             4) Ensure the `protect_from_forgery` plug is in your router pipeline:

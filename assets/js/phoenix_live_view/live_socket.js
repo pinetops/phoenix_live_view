@@ -790,6 +790,25 @@ export default class LiveSocket {
     this.currentHistoryPosition++
     this.sessionStorage.setItem(PHX_LV_HISTORY_POSITION, this.currentHistoryPosition.toString())
 
+    // Get phx:storage from sessionStorage and append to href if present
+    let phxStorage = this.sessionStorage.getItem("phx:storage")
+    if(phxStorage){
+      try {
+        // Convert JSON to URL encoded params
+        let params = new URLSearchParams()
+        let storageData = JSON.parse(phxStorage)
+        for(let key in storageData){
+          params.append(key, storageData[key])
+        }
+        
+        // Append to href
+        let separator = href.includes("?") ? "&" : "?"
+        href = `${href}${separator}${params.toString()}`
+      } catch (e) {
+        console.error("Failed to process phx:storage", e)
+      }
+    }
+
     // store the type for back navigation
     Browser.updateCurrentState((state) => ({...state, backType: "patch"}))
 

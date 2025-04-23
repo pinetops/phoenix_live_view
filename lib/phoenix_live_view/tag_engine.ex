@@ -673,7 +673,7 @@ defmodule Phoenix.LiveView.TagEngine do
     case pop_special_attrs!(attrs, tag_meta, state) do
       {false, _tag_meta, _attrs} ->
         state
-        |> set_root_on_not_tag()
+        |> set_root_on_tag()
         |> push_tag(token)
         |> init_slots()
         |> push_substate_to_stack()

@@ -997,7 +997,7 @@ defmodule Phoenix.LiveView.Channel do
 
             socket =
               socket
-              |> Lifecycle.after_render()
+              |> Lifecycle.after_render(state)
               |> Utils.clear_changed()
 
             {

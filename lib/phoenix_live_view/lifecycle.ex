@@ -217,10 +217,18 @@ defmodule Phoenix.LiveView.Lifecycle do
   end
 
   @doc false
-  def after_render(%Socket{private: %{@lifecycle => lifecycle}} = socket) do
+  def after_render(%Socket{private: %{@lifecycle => lifecycle}} = socket, arg) do
     {:cont, new_socket} =
       reduce_socket(lifecycle.after_render, socket, fn hook, acc ->
-        case hook.function.(acc) do
+        arity = Function.info(hook, :arity)
+
+        result = if arity == 2 do
+                   hook.function.(acc, arg)
+                 else 
+                   hook.function.(acc)
+                 end
+
+        case result do
           %Socket{} = new_socket ->
             {:cont, new_socket}
 

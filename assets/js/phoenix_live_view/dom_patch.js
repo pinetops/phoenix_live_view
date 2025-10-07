@@ -40,6 +40,7 @@ export default class DOMPatch {
     this.targetCID = targetCID;
     this.cidPatch = isCid(this.targetCID);
     this.pendingRemoves = [];
+    this.pendingTransitions = [];
     this.phxRemove = this.liveSocket.binding("remove");
     this.targetContainer = this.isCIDPatch()
       ? this.targetCIDContainer(html)
@@ -258,6 +259,11 @@ export default class DOMPatch {
           if (el.getAttribute && el.getAttribute(PHX_TELEPORTED_REF)) {
             return false;
           }
+          // don't remove instantiated template elements - preserve for transition
+          if (el.getAttribute && el.getAttribute("data-instantiated") !== null) {
+            this.pendingTransitions.push(el);
+            return false;
+          }
           if (this.maybePendingRemove(el)) {
             return false;
           }
@@ -288,6 +294,12 @@ export default class DOMPatch {
           this.maybeReOrderStream(el, false);
         },
         onBeforeElUpdated: (fromEl, toEl) => {
+          // don't morph instantiated template elements - preserve for transition
+          if (fromEl.getAttribute && fromEl.getAttribute("data-instantiated") !== null) {
+            console.log("[Transitions] Protected instantiated element from morphing:", fromEl);
+            this.pendingTransitions.push(fromEl);
+            return false;
+          }
           // if we are patching the root target container and the id has changed, treat it as a new node
           // by replacing the fromEl with the toEl, which ensures hooks are torn down and re-created
           if (
@@ -537,6 +549,7 @@ export default class DOMPatch {
     updates.forEach((el) => this.trackAfter("updated", el));
 
     this.transitionPendingRemoves();
+    this.transitionPendingTransitions();
 
     if (externalFormTriggered) {
       liveSocket.unload();
@@ -686,6 +699,84 @@ export default class DOMPatch {
     }
   }
 
+  transitionPendingTransitions() {
+    const { pendingTransitions } = this;
+    console.log("[Transitions] Processing", pendingTransitions.length, "pending transitions");
+    if (pendingTransitions.length > 0) {
+      pendingTransitions.forEach((instantiatedEl) => {
+        console.log("[Transitions] Handling instantiated element:", instantiatedEl);
+        // Find the real content - it's a sibling that's not the template and not instantiated
+        const parent = instantiatedEl.parentElement;
+        if (!parent) return;
+
+        const realContent = Array.from(parent.children).find(
+          (el) =>
+            el !== instantiatedEl &&
+            el.tagName !== "TEMPLATE" &&
+            !el.hasAttribute("data-instantiated")
+        );
+
+        // Only transition if real content exists AND has actual content (not just empty container)
+        if (realContent && realContent.children.length > 0) {
+          console.log("[Transitions] Found real content with children, starting FLIP transition");
+
+          // FLIP: First - measure instantiated content height
+          const instantiatedHeight = instantiatedEl.getBoundingClientRect().height;
+          console.log("[Transitions] Instantiated height:", instantiatedHeight);
+
+          // Measure real content height by positioning it absolutely off-screen
+          const originalPosition = realContent.style.position;
+          const originalLeft = realContent.style.left;
+          realContent.style.position = "absolute";
+          realContent.style.left = "-9999px";
+          realContent.style.opacity = "0";
+
+          // Force layout
+          const realHeight = realContent.getBoundingClientRect().height;
+          console.log("[Transitions] Real content height:", realHeight);
+
+          // Put real content back in flow but invisible
+          realContent.style.position = originalPosition;
+          realContent.style.left = originalLeft;
+
+          // Lock parent to current height to prevent jumps
+          parent.style.height = `${instantiatedHeight}px`;
+          parent.style.overflow = "hidden";
+          parent.style.transition = "none";
+
+          // Set up transitions
+          instantiatedEl.style.transition = "opacity 200ms ease-out";
+          realContent.style.transition = "opacity 300ms ease-out 100ms"; // Delay form fade-in
+
+          // FLIP: Play - animate to final state
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Animate parent height to final size
+              parent.style.transition = "height 400ms ease-in-out";
+              parent.style.height = `${realHeight}px`;
+
+              // Fade out placeholder quickly, then fade in form
+              instantiatedEl.style.opacity = "0";
+              realContent.style.opacity = "1";
+
+              // Cleanup after animation
+              setTimeout(() => {
+                instantiatedEl.remove();
+                parent.style.height = "";
+                parent.style.overflow = "";
+                parent.style.transition = "";
+                realContent.style.transition = "";
+              }, 400);
+            });
+          });
+        } else {
+          // No real content with children yet - keep instantiated element visible
+          console.log("[Transitions] No real content with children yet, keeping instantiated element visible");
+        }
+      });
+    }
+  }
+
   isChangedSelect(fromEl, toEl) {
     if (!(fromEl instanceof HTMLSelectElement) || fromEl.multiple) {
       return false;
@@ -799,5 +890,39 @@ export default class DOMPatch {
     }
     el.replaceWith(script);
     el = script;
+  }
+
+  maybeInstantiateTemplate(el) {
+    console.log("[Template Debug] maybeInstantiateTemplate called with:", el);
+
+    // Check if this element or any of its children contain a template tag
+    const template = el.querySelector ? el.querySelector("template") : null;
+    console.log("[Template Debug] template found:", template);
+    if (!template) { return; }
+
+    // Check if there's already an instantiated version
+    const parent = template.parentElement;
+    console.log("[Template Debug] parent:", parent);
+    const alreadyInstantiated = parent ? parent.querySelector("[data-phx-template-instantiated]") : null;
+    console.log("[Template Debug] alreadyInstantiated:", alreadyInstantiated);
+    if (!parent || alreadyInstantiated) {
+      console.log("[Template Debug] Skipping - no parent or already instantiated");
+      return;
+    }
+
+    console.log("[Template Debug] Instantiating template...");
+    // Clone the template content
+    const clone = template.content.cloneNode(true);
+
+    // Wrap it in a container so we can track and remove it later
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("data-phx-template-instantiated", "");
+    // Give it a unique ID so morphdom tracks it and doesn't remove it
+    wrapper.id = `phx-template-${Math.random().toString(36).substring(2, 11)}`;
+    wrapper.appendChild(clone);
+
+    // Insert before the template (template stays at the end)
+    parent.insertBefore(wrapper, template);
+    console.log("[Template Debug] Template instantiated successfully!");
   }
 }

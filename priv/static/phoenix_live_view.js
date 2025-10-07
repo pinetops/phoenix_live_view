@@ -2225,6 +2225,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       this.targetCID = targetCID;
       this.cidPatch = isCid(this.targetCID);
       this.pendingRemoves = [];
+      this.pendingTransitions = [];
       this.phxRemove = this.liveSocket.binding("remove");
       this.targetContainer = this.isCIDPatch() ? this.targetCIDContainer(html) : container;
       this.callbacks = {
@@ -2387,6 +2388,10 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
             if (el.getAttribute && el.getAttribute(PHX_TELEPORTED_REF)) {
               return false;
             }
+            if (el.getAttribute && el.getAttribute("data-instantiated") !== null) {
+              this.pendingTransitions.push(el);
+              return false;
+            }
             if (this.maybePendingRemove(el)) {
               return false;
             }
@@ -2413,6 +2418,11 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
             this.maybeReOrderStream(el, false);
           },
           onBeforeElUpdated: (fromEl, toEl) => {
+            if (fromEl.getAttribute && fromEl.getAttribute("data-instantiated") !== null) {
+              console.log("[Transitions] Protected instantiated element from morphing:", fromEl);
+              this.pendingTransitions.push(fromEl);
+              return false;
+            }
             if (fromEl.id && fromEl.isSameNode(targetContainer2) && fromEl.id !== toEl.id) {
               morphCallbacks.onNodeDiscarded(fromEl);
               fromEl.replaceWith(toEl);
@@ -2594,6 +2604,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       added.forEach((el) => this.trackAfter("added", el));
       updates.forEach((el) => this.trackAfter("updated", el));
       this.transitionPendingRemoves();
+      this.transitionPendingTransitions();
       if (externalFormTriggered) {
         liveSocket.unload();
         const submitter = dom_default.private(externalFormTriggered, "submitter");
@@ -2707,6 +2718,57 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
         });
       }
     }
+    transitionPendingTransitions() {
+      const { pendingTransitions } = this;
+      console.log("[Transitions] Processing", pendingTransitions.length, "pending transitions");
+      if (pendingTransitions.length > 0) {
+        pendingTransitions.forEach((instantiatedEl) => {
+          console.log("[Transitions] Handling instantiated element:", instantiatedEl);
+          const parent = instantiatedEl.parentElement;
+          if (!parent)
+            return;
+          const realContent = Array.from(parent.children).find(
+            (el) => el !== instantiatedEl && el.tagName !== "TEMPLATE" && !el.hasAttribute("data-instantiated")
+          );
+          if (realContent && realContent.children.length > 0) {
+            console.log("[Transitions] Found real content with children, starting FLIP transition");
+            const instantiatedHeight = instantiatedEl.getBoundingClientRect().height;
+            console.log("[Transitions] Instantiated height:", instantiatedHeight);
+            const originalPosition = realContent.style.position;
+            const originalLeft = realContent.style.left;
+            realContent.style.position = "absolute";
+            realContent.style.left = "-9999px";
+            realContent.style.opacity = "0";
+            const realHeight = realContent.getBoundingClientRect().height;
+            console.log("[Transitions] Real content height:", realHeight);
+            realContent.style.position = originalPosition;
+            realContent.style.left = originalLeft;
+            parent.style.height = `${instantiatedHeight}px`;
+            parent.style.overflow = "hidden";
+            parent.style.transition = "none";
+            instantiatedEl.style.transition = "opacity 200ms ease-out";
+            realContent.style.transition = "opacity 300ms ease-out 100ms";
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                parent.style.transition = "height 400ms ease-in-out";
+                parent.style.height = `${realHeight}px`;
+                instantiatedEl.style.opacity = "0";
+                realContent.style.opacity = "1";
+                setTimeout(() => {
+                  instantiatedEl.remove();
+                  parent.style.height = "";
+                  parent.style.overflow = "";
+                  parent.style.transition = "";
+                  realContent.style.transition = "";
+                }, 400);
+              });
+            });
+          } else {
+            console.log("[Transitions] No real content with children yet, keeping instantiated element visible");
+          }
+        });
+      }
+    }
     isChangedSelect(fromEl, toEl) {
       if (!(fromEl instanceof HTMLSelectElement) || fromEl.multiple) {
         return false;
@@ -2791,6 +2853,30 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       }
       el.replaceWith(script);
       el = script;
+    }
+    maybeInstantiateTemplate(el) {
+      console.log("[Template Debug] maybeInstantiateTemplate called with:", el);
+      const template = el.querySelector ? el.querySelector("template") : null;
+      console.log("[Template Debug] template found:", template);
+      if (!template) {
+        return;
+      }
+      const parent = template.parentElement;
+      console.log("[Template Debug] parent:", parent);
+      const alreadyInstantiated = parent ? parent.querySelector("[data-phx-template-instantiated]") : null;
+      console.log("[Template Debug] alreadyInstantiated:", alreadyInstantiated);
+      if (!parent || alreadyInstantiated) {
+        console.log("[Template Debug] Skipping - no parent or already instantiated");
+        return;
+      }
+      console.log("[Template Debug] Instantiating template...");
+      const clone2 = template.content.cloneNode(true);
+      const wrapper = document.createElement("div");
+      wrapper.setAttribute("data-phx-template-instantiated", "");
+      wrapper.id = `phx-template-${Math.random().toString(36).substring(2, 11)}`;
+      wrapper.appendChild(clone2);
+      parent.insertBefore(wrapper, template);
+      console.log("[Template Debug] Template instantiated successfully!");
     }
   };
 

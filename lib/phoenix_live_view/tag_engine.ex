@@ -998,7 +998,7 @@ defmodule Phoenix.LiveView.TagEngine do
   #   pop_special_attrs!(state, ":for", attrs, %{}, state)
   #   => {%{}, []}
   defp pop_special_attrs!(attrs, tag_meta, state) do
-    Enum.reduce([for: ":for", if: ":if", key: ":key"], {false, tag_meta, attrs}, fn
+    Enum.reduce([for: ":for", if: ":if", loading: ":loading", key: ":key"], {false, tag_meta, attrs}, fn
       {attr, string_attr}, {special_acc, meta_acc, attrs_acc} ->
         attrs_acc
         |> List.keytake(string_attr, 0)
@@ -1158,10 +1158,43 @@ defmodule Phoenix.LiveView.TagEngine do
             for unquote(for_expr), do: unquote(invoke_subengine(state, :handle_end, []))
           end
 
+        %{if: if_expr, loading: loading_expr} ->
+          content_ast = invoke_subengine(state, :handle_end, [])
+
+          quote do
+            # Always render the loading template
+            loading_template = unquote(loading_expr)
+
+            # Build the template tag with loading content inside
+            template_tag = Phoenix.HTML.raw([
+              "<template>",
+              Phoenix.HTML.Safe.to_iodata(loading_template),
+              "</template>"
+            ])
+
+            # When :if is true, render both template and content
+            # When :if is false, render only template (for client-side instantiation)
+            if unquote(if_expr) do
+              # Render both template and content
+              content = unquote(content_ast)
+
+              # Combine template and content
+              Phoenix.HTML.raw([
+                Phoenix.HTML.Safe.to_iodata(template_tag),
+                Phoenix.HTML.Safe.to_iodata(content)
+              ])
+            else
+              template_tag
+            end
+          end
+
         %{if: if_expr} ->
           quote do
             if unquote(if_expr), do: unquote(invoke_subengine(state, :handle_end, []))
           end
+
+        %{loading: _loading_expr} ->
+          raise_syntax_error!(":loading must be used with :if", tag_meta, state)
 
         %{key: _} ->
           raise_syntax_error!("cannot use :key without :for", tag_meta, state)
@@ -1614,7 +1647,7 @@ defmodule Phoenix.LiveView.TagEngine do
   end
 
   defp validate_phx_attrs!([{":" <> name, _, attr_meta} | _], _meta, state, _attr, _id?)
-       when name not in ~w(if for key) do
+       when name not in ~w(if for key loading) do
     message = "unsupported attribute :#{name} in tags"
     raise_syntax_error!(message, attr_meta, state)
   end

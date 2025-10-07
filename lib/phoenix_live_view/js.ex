@@ -558,6 +558,46 @@ defmodule Phoenix.LiveView.JS do
   end
 
   @doc """
+  Instantiates a loading template for optimistic UI.
+
+  Finds a `<template>` tag inside the target element, clones its content,
+  wraps it with `data-instantiated="true"`, and inserts it before the template.
+  This provides immediate visual feedback while waiting for server responses.
+
+  The instantiated content will be automatically transitioned out when the real
+  content arrives from the server (when used with the `:loading` attribute).
+
+  ## Options
+
+    * `:to` - A DOM selector to find the container with the template.
+      Defaults to the interacted element. See the `DOM selectors`
+      section for details.
+
+  ## Examples
+
+  ```heex
+  <div id="modal-content">
+    <div :if={@show_modal} :loading={~H"<div>Loading...</div>"}>
+      Real content here
+    </div>
+  </div>
+
+  <button phx-click={JS.instantiate_loading(to: "#modal-content") |> JS.push("load_modal")}>
+    Open Modal
+  </button>
+  ```
+  """
+  def instantiate_loading(opts \\ [])
+  def instantiate_loading(%JS{} = js), do: instantiate_loading(js, [])
+  def instantiate_loading(opts) when is_list(opts), do: instantiate_loading(%JS{}, opts)
+
+  @doc "See `instantiate_loading/1`."
+  def instantiate_loading(js, opts) when is_list(opts) do
+    opts = validate_keys(opts, :instantiate_loading, [:to])
+    put_op(js, "instantiate_loading", to: opts[:to])
+  end
+
+  @doc """
   Adds classes to elements.
 
     * `names` - A string with one or more class names to add.

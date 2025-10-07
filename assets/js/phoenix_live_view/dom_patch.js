@@ -208,6 +208,22 @@ export default class DOMPatch {
           if (el.getAttribute) {
             this.maybeReOrderStream(el, true);
           }
+
+          // Hide real content immediately if instantiated template exists
+          // This prevents flash before transition runs
+          // We only hide direct siblings of instantiated elements, not nested children
+          if (el.parentElement && el.nodeType === Node.ELEMENT_NODE && el.tagName !== "TEMPLATE") {
+            const instantiatedSibling = Array.from(el.parentElement.children).find(
+              (sibling) => sibling !== el && sibling.getAttribute && sibling.getAttribute("data-instantiated") !== null
+            );
+            if (instantiatedSibling && !el.hasAttribute("data-instantiated")) {
+              console.log("[Transitions] Hiding newly added real content (direct sibling of instantiated):", el);
+              el.style.opacity = "0";
+              // Mark it so we don't process nested children
+              el.setAttribute("data-pending-transition", "true");
+            }
+          }
+
           // phx-portal handling
           if (DOM.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));
@@ -724,20 +740,10 @@ export default class DOMPatch {
           const instantiatedHeight = instantiatedEl.getBoundingClientRect().height;
           console.log("[Transitions] Instantiated height:", instantiatedHeight);
 
-          // Measure real content height by positioning it absolutely off-screen
-          const originalPosition = realContent.style.position;
-          const originalLeft = realContent.style.left;
-          realContent.style.position = "absolute";
-          realContent.style.left = "-9999px";
-          realContent.style.opacity = "0";
-
-          // Force layout
+          // Real content should already be hidden by onNodeAdded, just measure it
+          // It's in the normal flow but invisible (opacity: 0)
           const realHeight = realContent.getBoundingClientRect().height;
           console.log("[Transitions] Real content height:", realHeight);
-
-          // Put real content back in flow but invisible
-          realContent.style.position = originalPosition;
-          realContent.style.left = originalLeft;
 
           // Lock parent to current height to prevent jumps
           parent.style.height = `${instantiatedHeight}px`;
@@ -766,6 +772,7 @@ export default class DOMPatch {
                 parent.style.overflow = "";
                 parent.style.transition = "";
                 realContent.style.transition = "";
+                realContent.removeAttribute("data-pending-transition");
               }, 400);
             });
           });

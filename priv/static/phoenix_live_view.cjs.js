@@ -2335,6 +2335,16 @@ var DOMPatch = class {
           if (el.getAttribute) {
             this.maybeReOrderStream(el, true);
           }
+          if (el.parentElement && el.nodeType === Node.ELEMENT_NODE && el.tagName !== "TEMPLATE") {
+            const instantiatedSibling = Array.from(el.parentElement.children).find(
+              (sibling) => sibling !== el && sibling.getAttribute && sibling.getAttribute("data-instantiated") !== null
+            );
+            if (instantiatedSibling && !el.hasAttribute("data-instantiated")) {
+              console.log("[Transitions] Hiding newly added real content (direct sibling of instantiated):", el);
+              el.style.opacity = "0";
+              el.setAttribute("data-pending-transition", "true");
+            }
+          }
           if (dom_default.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));
           }
@@ -2715,15 +2725,8 @@ var DOMPatch = class {
           console.log("[Transitions] Found real content with children, starting FLIP transition");
           const instantiatedHeight = instantiatedEl.getBoundingClientRect().height;
           console.log("[Transitions] Instantiated height:", instantiatedHeight);
-          const originalPosition = realContent.style.position;
-          const originalLeft = realContent.style.left;
-          realContent.style.position = "absolute";
-          realContent.style.left = "-9999px";
-          realContent.style.opacity = "0";
           const realHeight = realContent.getBoundingClientRect().height;
           console.log("[Transitions] Real content height:", realHeight);
-          realContent.style.position = originalPosition;
-          realContent.style.left = originalLeft;
           parent.style.height = `${instantiatedHeight}px`;
           parent.style.overflow = "hidden";
           parent.style.transition = "none";
@@ -2741,6 +2744,7 @@ var DOMPatch = class {
                 parent.style.overflow = "";
                 parent.style.transition = "";
                 realContent.style.transition = "";
+                realContent.removeAttribute("data-pending-transition");
               }, 400);
             });
           });
@@ -3473,6 +3477,24 @@ var JS = {
   },
   exec_hide(e, eventType, phxEvent, view, sourceEl, el, { display, transition, time, blocking }) {
     this.hide(eventType, view, el, display, transition, time, blocking);
+  },
+  exec_instantiate_loading(e, eventType, phxEvent, view, sourceEl, el, opts) {
+    const template = el.querySelector("template");
+    if (!template) {
+      console.warn("[instantiate_loading] No template found in element:", el);
+      return;
+    }
+    if (el.querySelector("[data-instantiated]")) {
+      console.log("[instantiate_loading] Already have instantiated content, skipping");
+      return;
+    }
+    const clone2 = template.content.cloneNode(true);
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("data-instantiated", "true");
+    wrapper.style.opacity = "1";
+    wrapper.appendChild(clone2);
+    el.insertBefore(wrapper, template);
+    console.log("[instantiate_loading] Instantiated template");
   },
   exec_set_attr(e, eventType, phxEvent, view, sourceEl, el, { attr: [attr, val] }) {
     this.setOrRemoveAttrs(el, [[attr, val]], []);

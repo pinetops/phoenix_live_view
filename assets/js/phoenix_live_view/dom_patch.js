@@ -209,6 +209,38 @@ export default class DOMPatch {
             this.maybeReOrderStream(el, true);
           }
 
+          // phx-replaces handling - cross-fade from placeholder to real content
+          if (el.getAttribute && el.getAttribute("phx-replaces")) {
+            const placeholderId = el.getAttribute("phx-replaces");
+            const placeholder = document.getElementById(placeholderId);
+
+            if (placeholder) {
+              console.log("[Transitions] Found phx-replaces:", placeholderId, "- scheduling cross-fade");
+
+              // Mark placeholder for pending removal (like phx-remove)
+              this.pendingRemoves.push(placeholder);
+
+              // Ensure content starts hidden (remove any existing opacity classes and add opacity-0)
+              el.classList.remove("opacity-100");
+              if (!el.classList.contains("opacity-0")) {
+                el.classList.add("opacity-0");
+              }
+
+              // Trigger cross-fade in next frame
+              requestAnimationFrame(() => {
+                // Fade out placeholder
+                placeholder.classList.remove("opacity-100");
+                placeholder.classList.add("opacity-0");
+
+                // Fade in content
+                requestAnimationFrame(() => {
+                  el.classList.remove("opacity-0");
+                  el.classList.add("opacity-100");
+                });
+              });
+            }
+          }
+
           // Hide real content immediately if instantiated template exists
           // This prevents flash before transition runs
           // We only hide direct siblings of instantiated elements, not nested children

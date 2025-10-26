@@ -2354,6 +2354,26 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
             if (el.getAttribute) {
               this.maybeReOrderStream(el, true);
             }
+            if (el.getAttribute && el.getAttribute("phx-replaces")) {
+              const placeholderId = el.getAttribute("phx-replaces");
+              const placeholder = document.getElementById(placeholderId);
+              if (placeholder) {
+                console.log("[Transitions] Found phx-replaces:", placeholderId, "- scheduling cross-fade");
+                this.pendingRemoves.push(placeholder);
+                el.classList.remove("opacity-100");
+                if (!el.classList.contains("opacity-0")) {
+                  el.classList.add("opacity-0");
+                }
+                requestAnimationFrame(() => {
+                  placeholder.classList.remove("opacity-100");
+                  placeholder.classList.add("opacity-0");
+                  requestAnimationFrame(() => {
+                    el.classList.remove("opacity-0");
+                    el.classList.add("opacity-100");
+                  });
+                });
+              }
+            }
             if (el.parentElement && el.nodeType === Node.ELEMENT_NODE && el.tagName !== "TEMPLATE") {
               const instantiatedSibling = Array.from(el.parentElement.children).find(
                 (sibling) => sibling !== el && sibling.getAttribute && sibling.getAttribute("data-instantiated") !== null
@@ -5872,6 +5892,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
   var isUsedInput = (el) => dom_default.isUsedInput(el);
   var LiveSocket = class {
     constructor(url, phxSocket, opts = {}) {
+      console.log("\u{1F680} [CUSTOM CHANGE] LiveSocket constructor called - this is from the local phoenix_live_view!");
       this.unloaded = false;
       if (!phxSocket || phxSocket.constructor.name === "Object") {
         throw new Error(`

@@ -2307,26 +2307,14 @@ var DOMPatch = class {
             this.maybeReOrderStream(el, true);
           }
           if (el.getAttribute && el.getAttribute("phx-replaces")) {
-            const placeholderId = el.getAttribute("phx-replaces");
-            const placeholder = document.getElementById(placeholderId);
-            if (placeholder) {
-              if (placeholder.classList.contains("relative")) {
-                placeholder.classList.remove("relative");
-                placeholder.classList.add("absolute", "top-0", "left-0", "w-full", "z-10");
+            const targetId = el.getAttribute("phx-replaces");
+            const target = document.getElementById(targetId);
+            if (target) {
+              this.pendingRemoves.push(target);
+              const replacesWithJS = el.getAttribute("phx-replaces-with");
+              if (replacesWithJS) {
+                this.liveSocket.execJS(el, replacesWithJS, "replaces");
               }
-              this.pendingRemoves.push(placeholder);
-              el.classList.remove("opacity-100");
-              if (!el.classList.contains("opacity-0")) {
-                el.classList.add("opacity-0");
-              }
-              requestAnimationFrame(() => {
-                placeholder.classList.remove("opacity-100");
-                placeholder.classList.add("opacity-0");
-                requestAnimationFrame(() => {
-                  el.classList.remove("opacity-0");
-                  el.classList.add("opacity-100");
-                });
-              });
             }
           }
           if (dom_default.isPortalTemplate(el)) {

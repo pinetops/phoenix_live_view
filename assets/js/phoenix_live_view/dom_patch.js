@@ -208,39 +208,20 @@ export default class DOMPatch {
             this.maybeReOrderStream(el, true);
           }
 
-          // phx-replaces handling - cross-fade from placeholder to real content
+          // phx-replaces handling - mark target for removal
           if (el.getAttribute && el.getAttribute("phx-replaces")) {
-            const placeholderId = el.getAttribute("phx-replaces");
-            const placeholder = document.getElementById(placeholderId);
+            const targetId = el.getAttribute("phx-replaces");
+            const target = document.getElementById(targetId);
 
-            if (placeholder) {
-              // Switch placeholder from relative to absolute for overlay during transition
-              if (placeholder.classList.contains("relative")) {
-                placeholder.classList.remove("relative");
-                placeholder.classList.add("absolute", "top-0", "left-0", "w-full", "z-10");
+            if (target) {
+              // Add target to pendingRemoves (will execute its phx-remove transition)
+              this.pendingRemoves.push(target);
+
+              // If there's a phx-replaces-with attribute, execute those transitions
+              const replacesWithJS = el.getAttribute("phx-replaces-with");
+              if (replacesWithJS) {
+                this.liveSocket.execJS(el, replacesWithJS, "replaces");
               }
-
-              // Mark placeholder for pending removal (like phx-remove)
-              this.pendingRemoves.push(placeholder);
-
-              // Ensure content starts hidden
-              el.classList.remove("opacity-100");
-              if (!el.classList.contains("opacity-0")) {
-                el.classList.add("opacity-0");
-              }
-
-              // Trigger cross-fade in next frame
-              requestAnimationFrame(() => {
-                // Fade out placeholder
-                placeholder.classList.remove("opacity-100");
-                placeholder.classList.add("opacity-0");
-
-                // Fade in content
-                requestAnimationFrame(() => {
-                  el.classList.remove("opacity-0");
-                  el.classList.add("opacity-100");
-                });
-              });
             }
           }
 

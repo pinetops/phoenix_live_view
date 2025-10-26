@@ -216,12 +216,6 @@ export default class DOMPatch {
             if (target) {
               // Add target to pendingRemoves (will execute its phx-remove transition)
               this.pendingRemoves.push(target);
-
-              // If there's a phx-replaces-with attribute, execute those transitions
-              const replacesWithJS = el.getAttribute("phx-replaces-with");
-              if (replacesWithJS) {
-                this.liveSocket.execJS(el, replacesWithJS, "replaces");
-              }
             }
           }
 

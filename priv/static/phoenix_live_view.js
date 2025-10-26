@@ -2358,10 +2358,6 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
               const target = document.getElementById(targetId);
               if (target) {
                 this.pendingRemoves.push(target);
-                const replacesWithJS = el.getAttribute("phx-replaces-with");
-                if (replacesWithJS) {
-                  this.liveSocket.execJS(el, replacesWithJS, "replaces");
-                }
               }
             }
             if (dom_default.isPortalTemplate(el)) {

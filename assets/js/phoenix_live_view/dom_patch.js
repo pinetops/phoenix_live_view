@@ -208,17 +208,6 @@ export default class DOMPatch {
             this.maybeReOrderStream(el, true);
           }
 
-          // phx-replaces handling - mark target for removal
-          if (el.getAttribute && el.getAttribute("phx-replaces")) {
-            const targetId = el.getAttribute("phx-replaces");
-            const target = document.getElementById(targetId);
-
-            if (target) {
-              // Add target to pendingRemoves (will execute its phx-remove transition)
-              this.pendingRemoves.push(target);
-            }
-          }
-
           // phx-portal handling
           if (DOM.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));

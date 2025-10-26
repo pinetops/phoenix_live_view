@@ -386,6 +386,50 @@ defmodule Phoenix.LiveView.JS do
   end
 
   @doc """
+  Removes elements from the page with optional transitions.
+
+  The removed element(s) will execute their `phx-remove` transition if present,
+  allowing for smooth fade-out or other removal animations.
+
+  This is useful for coordinating element removal when new content appears,
+  such as replacing a loading placeholder with real content.
+
+  **Note**: This command only works for client-instantiated elements (e.g., from
+  `<template>` tags) or elements that will not be re-rendered by LiveView. It is
+  not effective for removing server-rendered LiveView markup, as LiveView may
+  restore the element with a future patch.
+
+  ## Options
+
+    * `:to` - A required DOM selector to target elements for removal.
+      See the `DOM selectors` section for details.
+
+  ## Examples
+
+      # Remove a client-instantiated loading indicator when content mounts
+      <div phx-mounted={JS.remove_element(to: "#loading")}>
+        ...
+      </div>
+
+      # Chain with other commands
+      JS.remove_element(to: "#modal-backdrop")
+      |> JS.push("modal_closed")
+
+  """
+  def remove_element(opts) when is_list(opts), do: remove_element(%JS{}, opts)
+
+  @doc "See `remove_element/1`."
+  def remove_element(%JS{} = js, opts) when is_list(opts) do
+    opts = validate_keys(opts, :remove_element, [:to])
+
+    unless opts[:to] do
+      raise ArgumentError, "the :to option is required for remove_element"
+    end
+
+    put_op(js, "remove_element", to: opts[:to])
+  end
+
+  @doc """
   Toggles element visibility.
 
   ## Options

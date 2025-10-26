@@ -326,6 +326,12 @@ const JS = {
     this.setOrRemoveAttrs(el, [], [attr]);
   },
 
+  exec_remove_element(e, eventType, phxEvent, view, sourceEl, el) {
+    view.liveSocket.transitionRemoves([el], () => {
+      el.remove();
+    });
+  },
+
   ignoreAttrs(el, attrs) {
     DOM.putPrivate(el, "JS:ignore_attrs", {
       apply: (fromEl, toEl) => {

@@ -2334,13 +2334,6 @@ var DOMPatch = class {
           if (el.getAttribute) {
             this.maybeReOrderStream(el, true);
           }
-          if (el.getAttribute && el.getAttribute("phx-replaces")) {
-            const targetId = el.getAttribute("phx-replaces");
-            const target = document.getElementById(targetId);
-            if (target) {
-              this.pendingRemoves.push(target);
-            }
-          }
           if (dom_default.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));
           }
@@ -3402,6 +3395,11 @@ var JS = {
   },
   exec_remove_attr(e, eventType, phxEvent, view, sourceEl, el, { attr }) {
     this.setOrRemoveAttrs(el, [], [attr]);
+  },
+  exec_remove_element(e, eventType, phxEvent, view, sourceEl, el) {
+    view.liveSocket.transitionRemoves([el], () => {
+      el.remove();
+    });
   },
   ignoreAttrs(el, attrs) {
     dom_default.putPrivate(el, "JS:ignore_attrs", {

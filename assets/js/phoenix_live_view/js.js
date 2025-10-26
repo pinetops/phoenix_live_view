@@ -327,11 +327,18 @@ const JS = {
   },
 
   exec_remove_element(e, eventType, phxEvent, view, sourceEl, el, { to }) {
+    console.log('[exec_remove_element] Called with selector:', to);
     const targetEl = document.querySelector(to);
+    console.log('[exec_remove_element] Found target:', targetEl);
     if (targetEl) {
+      const phxRemove = targetEl.getAttribute('phx-remove');
+      console.log('[exec_remove_element] phx-remove attribute:', phxRemove);
       view.liveSocket.transitionRemoves([targetEl], () => {
+        console.log('[exec_remove_element] Removing element after transition');
         targetEl.remove();
       });
+    } else {
+      console.warn('[exec_remove_element] Target element not found for selector:', to);
     }
   },
 

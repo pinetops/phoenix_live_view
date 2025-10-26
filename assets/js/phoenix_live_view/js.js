@@ -310,17 +310,17 @@ const JS = {
     this.hide(eventType, view, el, display, transition, time, blocking);
   },
 
-  exec_instantiate_loading(e, eventType, phxEvent, view, sourceEl, el, opts) {
+  exec_show_loading(e, eventType, phxEvent, view, sourceEl, el, opts) {
     // Find the template tag inside the target element
     const template = el.querySelector("template");
     if (!template) {
-      console.warn("[instantiate_loading] No template found in element:", el);
+      console.warn("[show_loading] No template found in element:", el);
       return;
     }
 
     // Don't instantiate if we already have an instantiated copy
     if (el.querySelector("[data-instantiated]")) {
-      console.log("[instantiate_loading] Already have instantiated content, skipping");
+      console.log("[show_loading] Already have instantiated content, skipping");
       return;
     }
 
@@ -334,7 +334,7 @@ const JS = {
     // Insert before the template (so template stays at the end)
     el.insertBefore(wrapper, template);
 
-    console.log("[instantiate_loading] Instantiated template");
+    console.log("[show_loading] Instantiated template");
   },
 
   exec_set_attr(

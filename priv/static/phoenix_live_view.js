@@ -3497,14 +3497,14 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
     exec_hide(e, eventType, phxEvent, view, sourceEl, el, { display, transition, time, blocking }) {
       this.hide(eventType, view, el, display, transition, time, blocking);
     },
-    exec_instantiate_loading(e, eventType, phxEvent, view, sourceEl, el, opts) {
+    exec_show_loading(e, eventType, phxEvent, view, sourceEl, el, opts) {
       const template = el.querySelector("template");
       if (!template) {
-        console.warn("[instantiate_loading] No template found in element:", el);
+        console.warn("[show_loading] No template found in element:", el);
         return;
       }
       if (el.querySelector("[data-instantiated]")) {
-        console.log("[instantiate_loading] Already have instantiated content, skipping");
+        console.log("[show_loading] Already have instantiated content, skipping");
         return;
       }
       const clone2 = template.content.cloneNode(true);
@@ -3513,7 +3513,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       wrapper.style.opacity = "1";
       wrapper.appendChild(clone2);
       el.insertBefore(wrapper, template);
-      console.log("[instantiate_loading] Instantiated template");
+      console.log("[show_loading] Instantiated template");
     },
     exec_set_attr(e, eventType, phxEvent, view, sourceEl, el, { attr: [attr, val] }) {
       this.setOrRemoveAttrs(el, [[attr, val]], []);

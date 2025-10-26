@@ -637,6 +637,9 @@ export default class DOMPatch {
     if (node.getAttribute && node.getAttribute(this.phxRemove) !== null) {
       this.pendingRemoves.push(node);
       return true;
+    } else if (this.pendingRemoves.indexOf(node) >= 0) {
+      // Node is already scheduled for removal (e.g., by phx-replaces)
+      return true;
     } else {
       return false;
     }

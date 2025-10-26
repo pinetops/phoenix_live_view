@@ -2646,6 +2646,8 @@ var DOMPatch = class {
     if (node.getAttribute && node.getAttribute(this.phxRemove) !== null) {
       this.pendingRemoves.push(node);
       return true;
+    } else if (this.pendingRemoves.indexOf(node) >= 0) {
+      return true;
     } else {
       return false;
     }

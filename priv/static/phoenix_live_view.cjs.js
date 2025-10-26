@@ -2334,6 +2334,29 @@ var DOMPatch = class {
           if (el.getAttribute) {
             this.maybeReOrderStream(el, true);
           }
+          if (el.getAttribute && el.getAttribute("phx-replaces")) {
+            const placeholderId = el.getAttribute("phx-replaces");
+            const placeholder = document.getElementById(placeholderId);
+            if (placeholder) {
+              if (placeholder.classList.contains("relative")) {
+                placeholder.classList.remove("relative");
+                placeholder.classList.add("absolute", "top-0", "left-0", "w-full", "z-10");
+              }
+              this.pendingRemoves.push(placeholder);
+              el.classList.remove("opacity-100");
+              if (!el.classList.contains("opacity-0")) {
+                el.classList.add("opacity-0");
+              }
+              requestAnimationFrame(() => {
+                placeholder.classList.remove("opacity-100");
+                placeholder.classList.add("opacity-0");
+                requestAnimationFrame(() => {
+                  el.classList.remove("opacity-0");
+                  el.classList.add("opacity-100");
+                });
+              });
+            }
+          }
           if (dom_default.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));
           }
@@ -2604,6 +2627,8 @@ var DOMPatch = class {
   maybePendingRemove(node) {
     if (node.getAttribute && node.getAttribute(this.phxRemove) !== null) {
       this.pendingRemoves.push(node);
+      return true;
+    } else if (this.pendingRemoves.indexOf(node) >= 0) {
       return true;
     } else {
       return false;

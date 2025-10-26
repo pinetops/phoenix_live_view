@@ -51,6 +51,7 @@ export const isUsedInput = (el) => DOM.isUsedInput(el);
 
 export default class LiveSocket {
   constructor(url, phxSocket, opts = {}) {
+    console.log("🚀 [CUSTOM CHANGE] LiveSocket constructor called - this is from the local phoenix_live_view!");
     this.unloaded = false;
     if (!phxSocket || phxSocket.constructor.name === "Object") {
       throw new Error(`

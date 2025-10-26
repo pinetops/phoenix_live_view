@@ -207,6 +207,43 @@ export default class DOMPatch {
           if (el.getAttribute) {
             this.maybeReOrderStream(el, true);
           }
+
+          // phx-replaces handling - cross-fade from placeholder to real content
+          if (el.getAttribute && el.getAttribute("phx-replaces")) {
+            const placeholderId = el.getAttribute("phx-replaces");
+            const placeholder = document.getElementById(placeholderId);
+
+            if (placeholder) {
+              // Switch placeholder from relative to absolute for overlay during transition
+              if (placeholder.classList.contains("relative")) {
+                placeholder.classList.remove("relative");
+                placeholder.classList.add("absolute", "top-0", "left-0", "w-full", "z-10");
+              }
+
+              // Mark placeholder for pending removal (like phx-remove)
+              this.pendingRemoves.push(placeholder);
+
+              // Ensure content starts hidden
+              el.classList.remove("opacity-100");
+              if (!el.classList.contains("opacity-0")) {
+                el.classList.add("opacity-0");
+              }
+
+              // Trigger cross-fade in next frame
+              requestAnimationFrame(() => {
+                // Fade out placeholder
+                placeholder.classList.remove("opacity-100");
+                placeholder.classList.add("opacity-0");
+
+                // Fade in content
+                requestAnimationFrame(() => {
+                  el.classList.remove("opacity-0");
+                  el.classList.add("opacity-100");
+                });
+              });
+            }
+          }
+
           // phx-portal handling
           if (DOM.isPortalTemplate(el)) {
             portalCallbacks.push(() => this.teleport(el, morph));
@@ -575,6 +612,9 @@ export default class DOMPatch {
   maybePendingRemove(node) {
     if (node.getAttribute && node.getAttribute(this.phxRemove) !== null) {
       this.pendingRemoves.push(node);
+      return true;
+    } else if (this.pendingRemoves.indexOf(node) >= 0) {
+      // Node is already scheduled for removal (e.g., by phx-replaces)
       return true;
     } else {
       return false;

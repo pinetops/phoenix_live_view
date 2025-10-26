@@ -3419,8 +3419,10 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       const targetEl = document.querySelector(to);
       if (targetEl) {
         requestAnimationFrame(() => {
-          view.liveSocket.transitionRemoves([targetEl], () => {
-            targetEl.remove();
+          requestAnimationFrame(() => {
+            view.liveSocket.transitionRemoves([targetEl], () => {
+              targetEl.remove();
+            });
           });
         });
       }

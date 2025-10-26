@@ -329,10 +329,12 @@ const JS = {
   exec_remove_element(e, eventType, phxEvent, view, sourceEl, el, { to }) {
     const targetEl = document.querySelector(to);
     if (targetEl) {
-      // Wait one frame to ensure the content element is fully mounted before transitioning
+      // Wait two frames to ensure the content element is fully mounted and styled
       requestAnimationFrame(() => {
-        view.liveSocket.transitionRemoves([targetEl], () => {
-          targetEl.remove();
+        requestAnimationFrame(() => {
+          view.liveSocket.transitionRemoves([targetEl], () => {
+            targetEl.remove();
+          });
         });
       });
     }

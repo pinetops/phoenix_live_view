@@ -326,10 +326,13 @@ const JS = {
     this.setOrRemoveAttrs(el, [], [attr]);
   },
 
-  exec_remove_element(e, eventType, phxEvent, view, sourceEl, el) {
-    view.liveSocket.transitionRemoves([el], () => {
-      el.remove();
-    });
+  exec_remove_element(e, eventType, phxEvent, view, sourceEl, el, { to }) {
+    const targetEl = document.querySelector(to);
+    if (targetEl) {
+      view.liveSocket.transitionRemoves([targetEl], () => {
+        targetEl.remove();
+      });
+    }
   },
 
   ignoreAttrs(el, attrs) {

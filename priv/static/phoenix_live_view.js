@@ -3418,8 +3418,10 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
     exec_remove_element(e, eventType, phxEvent, view, sourceEl, el, { to }) {
       const targetEl = document.querySelector(to);
       if (targetEl) {
-        view.liveSocket.transitionRemoves([targetEl], () => {
-          targetEl.remove();
+        requestAnimationFrame(() => {
+          view.liveSocket.transitionRemoves([targetEl], () => {
+            targetEl.remove();
+          });
         });
       }
     },

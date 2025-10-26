@@ -329,8 +329,11 @@ const JS = {
   exec_remove_element(e, eventType, phxEvent, view, sourceEl, el, { to }) {
     const targetEl = document.querySelector(to);
     if (targetEl) {
-      view.liveSocket.transitionRemoves([targetEl], () => {
-        targetEl.remove();
+      // Wait one frame to ensure the content element is fully mounted before transitioning
+      requestAnimationFrame(() => {
+        view.liveSocket.transitionRemoves([targetEl], () => {
+          targetEl.remove();
+        });
       });
     }
   },

@@ -78,10 +78,10 @@ export interface HookInterface<E extends HTMLElement = HTMLElement> {
    * @param [payload] - The payload to send to the server. Defaults to an empty object.
    * @param [onReply] - A callback to handle the server's reply.
    *
-   * When onReply is not provided, the method returns a Promise that
-   * When onReply is provided, the method returns void.
+   * When onReply is not provided, the method returns a Promise.
+   * When onReply is provided, the method returns the event ref (number) for staleness tracking.
    */
-  pushEvent(event: string, payload: any, onReply: OnReply): void;
+  pushEvent(event: string, payload: any, onReply: OnReply): number;
   pushEvent(event: string, payload?: any): Promise<any>;
 
   /**
@@ -386,18 +386,18 @@ export class ViewHook<E extends HTMLElement = HTMLElement>
     };
   }
 
-  pushEvent(event: string, payload?: any, onReply?: OnReply) {
-    const promise = this.__view().pushHookEvent(
+  pushEvent(event: string, payload: any, onReply: OnReply): number;
+  pushEvent(event: string, payload?: any): Promise<any>;
+  pushEvent(event: string, payload?: any, onReply?: OnReply): number | Promise<any> {
+    const result = this.__view().pushHookEvent(
       this.el,
       null,
       event,
       payload || {},
+      onReply
     );
-    if (onReply === undefined) {
-      return promise.then(({ reply }) => reply);
-    }
-    promise.then(({ reply, ref }) => onReply(reply, ref)).catch(() => {});
-    return;
+    // Returns promise when no callback, returns ref when callback provided
+    return result;
   }
 
   pushEventTo(

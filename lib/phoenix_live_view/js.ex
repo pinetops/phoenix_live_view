@@ -474,7 +474,7 @@ defmodule Phoenix.LiveView.JS do
 
   @doc "See `toggle/1`."
   def toggle(js, opts) when is_list(opts) do
-    opts = validate_keys(opts, :toggle, [:to, :in, :out, :display, :time, :blocking])
+    opts = validate_keys(opts, :toggle, [:to, :in, :out, :display, :time, :blocking, :delete])
     in_classes = transition_class_names(opts[:in])
     out_classes = transition_class_names(opts[:out])
     time = opts[:time]
@@ -485,7 +485,8 @@ defmodule Phoenix.LiveView.JS do
       ins: in_classes,
       outs: out_classes,
       time: time,
-      blocking: opts[:blocking]
+      blocking: opts[:blocking],
+      delete: opts[:delete]
     )
   end
 
@@ -589,7 +590,7 @@ defmodule Phoenix.LiveView.JS do
 
   @doc "See `hide/1`."
   def hide(js, opts) when is_list(opts) do
-    opts = validate_keys(opts, :hide, [:to, :transition, :time, :blocking])
+    opts = validate_keys(opts, :hide, [:to, :transition, :time, :blocking, :delete])
     transition = transition_class_names(opts[:transition])
     time = opts[:time]
 
@@ -597,7 +598,8 @@ defmodule Phoenix.LiveView.JS do
       to: opts[:to],
       transition: transition,
       time: time,
-      blocking: opts[:blocking]
+      blocking: opts[:blocking],
+      delete: opts[:delete]
     )
   end
 

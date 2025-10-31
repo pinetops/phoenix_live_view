@@ -84,6 +84,7 @@ export const PHX_KEY = "key";
 export const PHX_PRIVATE = "phxPrivate";
 export const PHX_AUTO_RECOVER = "auto-recover";
 export const PHX_NO_USAGE_TRACKING = "no-usage-tracking";
+export const PHX_CLIENT_REMOVING = "data-phx-client-removing";
 export const PHX_LV_DEBUG = "phx:live-socket:debug";
 export const PHX_LV_PROFILE = "phx:live-socket:profiling";
 export const PHX_LV_LATENCY_SIM = "phx:live-socket:latency-sim";

@@ -6,6 +6,7 @@ import {
   LOADER_TIMEOUT,
   DISCONNECTED_TIMEOUT,
   MAX_RELOADS,
+  PHX_CLIENT_REMOVING,
   PHX_DEBOUNCE,
   PHX_DROP_TARGET,
   PHX_HAS_FOCUSED,
@@ -497,6 +498,10 @@ export default class LiveSocket {
       for (const event of this.boundEventNames) {
         el.addEventListener(event, silenceEvents, true);
       }
+
+      // Always execute the phx-remove transition
+      // But if element was already client-deleted, the transition is already running
+      // so JS.hide will detect it's already hidden and skip restarting
       this.execJS(el, el.getAttribute(removeAttr), "remove");
     });
     // remove the silenced listeners when transitions are done incase the element is re-used

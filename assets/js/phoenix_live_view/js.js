@@ -1,5 +1,6 @@
 import DOM from "./dom";
 import ARIA from "./aria";
+import { PHX_CLIENT_REMOVING } from "./constants";
 
 const focusStack = [];
 const default_transition_time = 200;
@@ -305,9 +306,9 @@ const JS = {
     view,
     sourceEl,
     el,
-    { display, transition, time, blocking },
+    { display, transition, time, blocking, delete: shouldDelete },
   ) {
-    this.hide(eventType, view, el, display, transition, time, blocking);
+    this.hide(eventType, view, el, display, transition, time, blocking, shouldDelete);
   },
 
   exec_set_attr(
@@ -383,7 +384,13 @@ const JS = {
     }
   },
 
-  hide(eventType, view, el, display, transition, time, blocking) {
+  hide(eventType, view, el, display, transition, time, blocking, shouldDelete) {
+    // If element is already marked as client-deleted and is being removed by server,
+    // skip to avoid restarting the transition
+    if (shouldDelete === undefined && el.getAttribute(PHX_CLIENT_REMOVING) === "true") {
+      return;
+    }
+
     if (this.isVisible(el)) {
       this.toggle(
         eventType,
@@ -394,17 +401,25 @@ const JS = {
         transition,
         time,
         blocking,
+        shouldDelete,
       );
+    } else if (shouldDelete) {
+      // Element is already invisible but we want to mark it as client-deleted
+      el.setAttribute(PHX_CLIENT_REMOVING, "true");
     }
   },
 
-  toggle(eventType, view, el, display, ins, outs, time, blocking) {
+  toggle(eventType, view, el, display, ins, outs, time, blocking, shouldDelete) {
     time = time || default_transition_time;
     const [inClasses, inStartClasses, inEndClasses] = ins || [[], [], []];
     const [outClasses, outStartClasses, outEndClasses] = outs || [[], [], []];
     if (inClasses.length > 0 || outClasses.length > 0) {
       if (this.isVisible(el)) {
         const onStart = () => {
+          // Mark element as client-deleted if requested
+          if (shouldDelete) {
+            el.setAttribute(PHX_CLIENT_REMOVING, "true");
+          }
           this.addOrRemoveClasses(
             el,
             outStartClasses,

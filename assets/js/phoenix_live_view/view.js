@@ -142,6 +142,9 @@ export default class View {
     this.children = this.parent ? null : {};
     this.root.children[this.id] = {};
     this.formsForRecovery = {};
+    // Centralized callback registry for event acks
+    this.eventCallbackRef = 1;
+    this.pendingEventCallbacks = {}; // ref -> callback
     this.channel = this.liveSocket.channel(`lv:${this.id}`, () => {
       const url = this.href && this.expandURL(this.href);
       return {
@@ -1461,7 +1464,7 @@ export default class View {
     }
   }
 
-  pushHookEvent(el, targetCtx, event, payload) {
+  pushHookEvent(el, targetCtx, event, payload, onReply) {
     if (!this.isConnected()) {
       this.log("hook", () => [
         "unable to push hook event. LiveView not connected",
@@ -1479,12 +1482,43 @@ export default class View {
         target: targetCtx,
       });
 
-    return this.pushWithReply(refGenerator, "event", {
+    // Generate callback ref and store in centralized registry
+    let callbackRef = null;
+    let payloadToSend = payload;
+
+    if (onReply) {
+      callbackRef = this.eventCallbackRef++;
+      this.pendingEventCallbacks[callbackRef] = onReply;
+      payloadToSend = { ...payload, _ref: callbackRef };
+    }
+
+    const promise = this.pushWithReply(refGenerator, "event", {
       type: "hook",
       event: event,
-      value: payload,
+      value: payloadToSend,
       cid: this.closestComponentID(targetCtx),
-    }).then(({ resp: _resp, reply, ref }) => ({ reply, ref }));
+    }).then(({ resp: _resp, reply, ref }) => {
+      // Fire callback from centralized registry
+      if (callbackRef !== null) {
+        const callback = this.pendingEventCallbacks[callbackRef];
+        if (callback) {
+          callback(reply, callbackRef); // Pass ref for userland staleness tracking
+          delete this.pendingEventCallbacks[callbackRef];
+        }
+      }
+      return { reply, ref };
+    });
+
+    if (onReply) {
+      promise.catch(() => {
+        // Clean up callback on error
+        if (callbackRef !== null) {
+          delete this.pendingEventCallbacks[callbackRef];
+        }
+      });
+      return callbackRef; // Return ref synchronously for staleness tracking
+    }
+    return promise.then(({ reply }) => reply);
   }
 
   extractMeta(el, meta, value) {

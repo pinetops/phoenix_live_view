@@ -85,6 +85,7 @@ var PHX_KEY = "key";
 var PHX_PRIVATE = "phxPrivate";
 var PHX_AUTO_RECOVER = "auto-recover";
 var PHX_NO_USAGE_TRACKING = "no-usage-tracking";
+var PHX_CLIENT_REMOVING = "data-phx-client-removing";
 var PHX_LV_DEBUG = "phx:live-socket:debug";
 var PHX_LV_PROFILE = "phx:live-socket:profiling";
 var PHX_LV_LATENCY_SIM = "phx:live-socket:latency-sim";
@@ -3359,8 +3360,8 @@ var JS = {
   exec_show(e, eventType, phxEvent, view, sourceEl, el, { display, transition, time, blocking }) {
     this.show(eventType, view, el, display, transition, time, blocking);
   },
-  exec_hide(e, eventType, phxEvent, view, sourceEl, el, { display, transition, time, blocking }) {
-    this.hide(eventType, view, el, display, transition, time, blocking);
+  exec_hide(e, eventType, phxEvent, view, sourceEl, el, { display, transition, time, blocking, delete: shouldDelete }) {
+    this.hide(eventType, view, el, display, transition, time, blocking, shouldDelete);
   },
   exec_set_attr(e, eventType, phxEvent, view, sourceEl, el, { attr: [attr, val] }) {
     this.setOrRemoveAttrs(el, [[attr, val]], []);
@@ -3414,7 +3415,10 @@ var JS = {
       );
     }
   },
-  hide(eventType, view, el, display, transition, time, blocking) {
+  hide(eventType, view, el, display, transition, time, blocking, shouldDelete) {
+    if (shouldDelete === void 0 && el.getAttribute(PHX_CLIENT_REMOVING) === "true") {
+      return;
+    }
     if (this.isVisible(el)) {
       this.toggle(
         eventType,
@@ -3424,17 +3428,23 @@ var JS = {
         null,
         transition,
         time,
-        blocking
+        blocking,
+        shouldDelete
       );
+    } else if (shouldDelete) {
+      el.setAttribute(PHX_CLIENT_REMOVING, "true");
     }
   },
-  toggle(eventType, view, el, display, ins, outs, time, blocking) {
+  toggle(eventType, view, el, display, ins, outs, time, blocking, shouldDelete) {
     time = time || default_transition_time;
     const [inClasses, inStartClasses, inEndClasses] = ins || [[], [], []];
     const [outClasses, outStartClasses, outEndClasses] = outs || [[], [], []];
     if (inClasses.length > 0 || outClasses.length > 0) {
       if (this.isVisible(el)) {
         const onStart = () => {
+          if (shouldDelete) {
+            el.setAttribute(PHX_CLIENT_REMOVING, "true");
+          }
           this.addOrRemoveClasses(
             el,
             outStartClasses,
@@ -3925,18 +3935,14 @@ var ViewHook = class _ViewHook {
     };
   }
   pushEvent(event, payload, onReply) {
-    const promise = this.__view().pushHookEvent(
+    const result = this.__view().pushHookEvent(
       this.el,
       null,
       event,
-      payload || {}
+      payload || {},
+      onReply
     );
-    if (onReply === void 0) {
-      return promise.then(({ reply }) => reply);
-    }
-    promise.then(({ reply, ref }) => onReply(reply, ref)).catch(() => {
-    });
-    return;
+    return result;
   }
   pushEventTo(selectorOrTarget, event, payload, onReply) {
     if (onReply === void 0) {
@@ -4052,6 +4058,8 @@ var View = class _View {
     this.children = this.parent ? null : {};
     this.root.children[this.id] = {};
     this.formsForRecovery = {};
+    this.eventCallbackRef = 1;
+    this.pendingEventCallbacks = {};
     this.channel = this.liveSocket.channel(`lv:${this.id}`, () => {
       const url = this.href && this.expandURL(this.href);
       return {
@@ -5138,7 +5146,7 @@ var View = class _View {
       return null;
     }
   }
-  pushHookEvent(el, targetCtx, event, payload) {
+  pushHookEvent(el, targetCtx, event, payload, onReply) {
     if (!this.isConnected()) {
       this.log("hook", () => [
         "unable to push hook event. LiveView not connected",
@@ -5153,12 +5161,37 @@ var View = class _View {
       payload,
       target: targetCtx
     });
-    return this.pushWithReply(refGenerator, "event", {
+    let callbackRef = null;
+    let payloadToSend = payload;
+    if (onReply) {
+      callbackRef = this.eventCallbackRef++;
+      this.pendingEventCallbacks[callbackRef] = onReply;
+      payloadToSend = { ...payload, _ref: callbackRef };
+    }
+    const promise = this.pushWithReply(refGenerator, "event", {
       type: "hook",
       event,
-      value: payload,
+      value: payloadToSend,
       cid: this.closestComponentID(targetCtx)
-    }).then(({ resp: _resp, reply, ref }) => ({ reply, ref }));
+    }).then(({ resp: _resp, reply, ref }) => {
+      if (callbackRef !== null) {
+        const callback = this.pendingEventCallbacks[callbackRef];
+        if (callback) {
+          callback(reply, callbackRef);
+          delete this.pendingEventCallbacks[callbackRef];
+        }
+      }
+      return { reply, ref };
+    });
+    if (onReply) {
+      promise.catch(() => {
+        if (callbackRef !== null) {
+          delete this.pendingEventCallbacks[callbackRef];
+        }
+      });
+      return callbackRef;
+    }
+    return promise.then(({ reply }) => reply);
   }
   extractMeta(el, meta, value) {
     const prefix = this.binding("value-");

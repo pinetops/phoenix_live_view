@@ -517,7 +517,7 @@ defmodule Phoenix.LiveView.Channel do
       [:phoenix, :live_view, :handle_event],
       %{socket: socket, event: event, params: val},
       fn ->
-        case Lifecycle.handle_event(event, val, socket) do
+        result = case Lifecycle.handle_event(event, val, socket) do
           {:halt, %Socket{} = socket} ->
             {{:noreply, socket}, %{socket: socket, event: event, params: val}}
 
@@ -535,6 +535,15 @@ defmodule Phoenix.LiveView.Channel do
               other ->
                 raise_bad_callback_response!(other, socket.view, :handle_event, 3)
             end
+        end
+
+        # Automatically send ack if _ref is present and no explicit reply was given
+        case result do
+          {{:noreply, socket}, meta} when is_map_key(val, "_ref") ->
+            {{:reply, %{}, socket}, meta}
+
+          other ->
+            other
         end
       end
     )

@@ -5,6 +5,9 @@ import { PHX_CLIENT_REMOVING } from "./constants";
 const focusStack = [];
 const default_transition_time = 200;
 
+// Track pending transitions per element to allow cancellation
+const pendingTransitions = new WeakMap();
+
 const JS = {
   // private
   exec(e, eventType, phxEvent, view, sourceEl, defaults) {
@@ -413,6 +416,14 @@ const JS = {
     time = time || default_transition_time;
     const [inClasses, inStartClasses, inEndClasses] = ins || [[], [], []];
     const [outClasses, outStartClasses, outEndClasses] = outs || [[], [], []];
+
+    // Cancel any pending transition for this element
+    const pending = pendingTransitions.get(el);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pendingTransitions.delete(el);
+    }
+
     if (inClasses.length > 0 || outClasses.length > 0) {
       if (this.isVisible(el)) {
         const onStart = () => {
@@ -433,6 +444,7 @@ const JS = {
           });
         };
         const onEnd = () => {
+          pendingTransitions.delete(el);
           this.addOrRemoveClasses(el, [], outClasses.concat(outEndClasses));
           DOM.putSticky(
             el,
@@ -444,7 +456,8 @@ const JS = {
         el.dispatchEvent(new Event("phx:hide-start"));
         if (blocking === false) {
           onStart();
-          setTimeout(onEnd, time);
+          const timeoutId = setTimeout(onEnd, time);
+          pendingTransitions.set(el, { timeoutId });
         } else {
           view.transition(time, onStart, onEnd);
         }
@@ -478,13 +491,15 @@ const JS = {
           });
         };
         const onEnd = () => {
+          pendingTransitions.delete(el);
           this.addOrRemoveClasses(el, [], inClasses.concat(inEndClasses));
           el.dispatchEvent(new Event("phx:show-end"));
         };
         el.dispatchEvent(new Event("phx:show-start"));
         if (blocking === false) {
           onStart();
-          setTimeout(onEnd, time);
+          const timeoutId = setTimeout(onEnd, time);
+          pendingTransitions.set(el, { timeoutId });
         } else {
           view.transition(time, onStart, onEnd);
         }
